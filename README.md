@@ -28,6 +28,13 @@ Follow these steps to install the ReconAIzer extension on Burp Suite:
 ### Step 3: Download and Install ReconAIzer
 
 1.  Download the [latest release of ReconAIzer](https://github.com/hisxo/ReconAIzer/releases)
+2.  Open the file and go on line 103 to replace _"[YOUR OPENAI API KEY]"_ with your OpenAI API key
+
+_Note: Your OpenAI API key can be found here: [https://platform.openai.com/account/api-keys](https://platform.openai.com/account/api-keys)._
+
+### Step 4: Download and Install ReconAIzer
+
+1.  Open Burp Suite
 2.  Go back to the "Extensions" tab in Burp Suite.
 3.  Click the "Add" button.
 4.  In the "Add extension" dialog, select "Python" as the "Extension type."
