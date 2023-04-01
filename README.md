@@ -2,6 +2,10 @@
 
 ReconAIzer is a powerful Jython extension for Burp Suite that leverages OpenAI to help bug bounty hunters optimize their recon process. This extension automates various tasks, making it easier and faster for security researchers to identify and exploit vulnerabilities.
 
+Once installed, ReconAIzer add a contextual menu and a dedicated tab to see the results:
+
+![image](https://user-images.githubusercontent.com/16657045/229282506-ea5bc46b-b4d9-4f1b-9ec1-5dcd987de0bc.png)
+
 ## Prerequisites
 
 -   Burp Suite
@@ -44,4 +48,8 @@ _Note: Your OpenAI API key can be found here: [https://platform.openai.com/accou
 
 Congratulations! You have successfully installed the ReconAIzer extension in Burp Suite. You can now start using it to enhance your bug bounty hunting experience.
 
+**Note: Feel free to suggest prompts improvements or anything you would like to see on ReconAIzer!**
+
 Happy bug hunting!
+
+![image](https://user-images.githubusercontent.com/16657045/229282837-da0c0314-0882-4ef2-9203-018682330f76.png)
