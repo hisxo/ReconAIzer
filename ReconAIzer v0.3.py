@@ -121,7 +121,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IContextMenuFactory):
         }
 
         prompt_mapping = {
-            "guess_get_parameters": "As security web expert and skilled bug bounty hunter, your are my assistant. By analysing the following HTTP request, create 50 similar GET parameters:",
+            "guess_get_parameters": "As security web expert and skilled bug bounty hunter, your are my assistante. By analysing the following HTTP request, create 50 similar GET parameters:",
             "guess_post_parameters": "As security web expert and skilled bug bounty hunter, your are my assistant. By analysing the following HTTP request, create 50 similar POST parameters:",
             "guess_json_parameters": "As security web expert and skilled bug bounty hunter, you are my assistant. By analysing the following HTTP request, create 50 similar JSON parameters:",
             "guess_endpoints": "As security web expert and skilled bug bounty hunter, you are my assistant. By analysing the following HTTP request, create 50 paths:",
