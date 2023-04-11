@@ -116,7 +116,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IContextMenuFactory):
         OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
         # Use proxy if SOCKS_PROXY_URL is set, e.g. 127.0.0.1
         SOCKS_PROXY_URL = ""
-        SOCKS_PROXY_PROT = 7890
+        SOCKS_PROXY_PORT = 7890
         
         headers = {
             "Content-Type": "application/json",
@@ -145,7 +145,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IContextMenuFactory):
         retry_delay = 2
 
         for attempt in range(max_retries):
-            connection = self.send_post_request(OPENAI_API_URL, headers, json.dumps(data), proxy_url = SOCKS_PROXY_URL, proxy_port = SOCKS_PROXY_PROT)
+            connection = self.send_post_request(OPENAI_API_URL, headers, json.dumps(data), proxy_url = SOCKS_PROXY_URL, proxy_port = SOCKS_PROXY_PORT)
             response_code = connection.getResponseCode()
 
             if response_code == 429:
