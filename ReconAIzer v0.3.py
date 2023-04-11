@@ -2,7 +2,7 @@ from burp import IBurpExtender, ITab, IHttpListener, IContextMenuFactory
 from javax.swing import JMenuItem, JPanel, JTextArea, JScrollPane, ScrollPaneConstants, JTextField, JButton, JLabel
 from java.awt import BorderLayout
 from java.util import ArrayList
-from java.net import URL, HttpURLConnection
+from java.net import URL, HttpURLConnection, Proxy, InetSocketAddress;
 from java.io import BufferedReader, InputStreamReader, DataOutputStream
 from org.python.core.util import StringUtil
 from java.lang import Runnable, Thread
@@ -114,6 +114,9 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IContextMenuFactory):
     def send_request_to_openai(self, text, prompt_type):
         API_KEY = "[YOUR OPENAI API KEY]"
         OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
+        # Use proxy if SOCKS_PROXY_URL is set, e.g. 127.0.0.1
+        SOCKS_PROXY_URL = ""
+        SOCKS_PROXY_PROT = 7890
         
         headers = {
             "Content-Type": "application/json",
@@ -142,7 +145,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IContextMenuFactory):
         retry_delay = 2
 
         for attempt in range(max_retries):
-            connection = self.send_post_request(OPENAI_API_URL, headers, json.dumps(data))
+            connection = self.send_post_request(OPENAI_API_URL, headers, json.dumps(data), proxy_url = SOCKS_PROXY_URL, proxy_port = SOCKS_PROXY_PROT)
             response_code = connection.getResponseCode()
 
             if response_code == 429:
@@ -158,9 +161,13 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IContextMenuFactory):
 
         raise Exception("Exceeded maximum retries for API request")
 
-    def send_post_request(self, url, headers, data):
+    def send_post_request(self, url, headers, data, proxy_url = "", proxy_port = 7890):
         java_url = URL(url)
-        connection = java_url.openConnection()
+        if proxy_url !="":
+            proxy = Proxy(Proxy.Type.SOCKS, InetSocketAddress(proxy_url, proxy_port))
+            connection = java_url.openConnection(proxy)
+        else:
+            connection = java_url.openConnection()
         connection.setDoOutput(True)
         connection.setRequestMethod("POST")
         for key, value in headers.items():
