@@ -1,8 +1,8 @@
 from burp import IBurpExtender, ITab, IHttpListener, IContextMenuFactory
-from javax.swing import JMenuItem, JPanel, JTextArea, JScrollPane, ScrollPaneConstants, JTextField, JButton, JLabel
-from java.awt import BorderLayout
+from javax.swing import JMenuItem, JPanel, JTextArea, JScrollPane, ScrollPaneConstants, JTextField, JButton, JLabel, JTabbedPane, JOptionPane
+from java.awt import BorderLayout, Dimension
 from java.util import ArrayList
-from java.net import URL, HttpURLConnection, Proxy, InetSocketAddress;
+from java.net import URL, HttpURLConnection, Proxy, InetSocketAddress
 from java.io import BufferedReader, InputStreamReader, DataOutputStream
 from org.python.core.util import StringUtil
 from java.lang import Runnable, Thread
@@ -112,7 +112,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IContextMenuFactory):
 
 
     def send_request_to_openai(self, text, prompt_type):
-        API_KEY = "[YOUR OPENAI API KEY]"
+        global API_KEY
         OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
         # Use proxy if SOCKS_PROXY_URL is set, e.g. 127.0.0.1
         SOCKS_PROXY_URL = ""
@@ -192,6 +192,22 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IContextMenuFactory):
 class ReconAIzerTab(JPanel):
     def __init__(self):
         self.setLayout(BorderLayout())
+
+        self._tabbed_pane = JTabbedPane()
+        self.add(self._tabbed_pane, BorderLayout.CENTER)
+
+        self._results_tab = ResultsTab()
+        self._tabbed_pane.addTab("Results", self._results_tab)
+
+        self._config_tab = ConfigTab()
+        self._tabbed_pane.addTab("Config", self._config_tab)
+
+    def update_text(self, text):
+        self._results_tab.update_text(text)
+
+class ResultsTab(JPanel):
+    def __init__(self):
+        self.setLayout(BorderLayout())
         self._text_area = JTextArea()
         self._text_area.setEditable(False)
         self._text_area.setLineWrap(True)
@@ -202,3 +218,32 @@ class ReconAIzerTab(JPanel):
 
     def update_text(self, text):
         self._text_area.setText(text)
+
+class ConfigTab(JPanel):
+    def __init__(self):
+        self.setLayout(BorderLayout())
+
+        # Create a panel to hold the API key input and the "Save" button
+        config_panel = JPanel()
+        self.add(config_panel, BorderLayout.NORTH)
+
+        # Add a label for the API key input field
+        api_key_label = JLabel("API Key:")
+        config_panel.add(api_key_label)
+
+        # Create the API key input field
+        self._api_key_input = JTextField()
+        self._api_key_input.setPreferredSize(Dimension(300, 25))
+        config_panel.add(self._api_key_input)
+
+        # Create the "Save" button
+        save_button = JButton("Save")
+        save_button.setPreferredSize(Dimension(100, 25))
+        config_panel.add(save_button)
+
+        save_button.addActionListener(self.save_api_key)
+
+    def save_api_key(self, event):
+        global API_KEY
+        API_KEY = self._api_key_input.getText()
+        JOptionPane.showMessageDialog(self, "API key has been saved successfully!", "Confirmation", JOptionPane.INFORMATION_MESSAGE)
