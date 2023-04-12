@@ -34,23 +34,21 @@ Follow these steps to install the ReconAIzer extension on Burp Suite:
 ### Step 3: Download and Install ReconAIzer
 
 1.  Download the [latest release of ReconAIzer](https://github.com/hisxo/ReconAIzer/releases)
-2.  Open the file and go on line 103 to replace _"[YOUR OPENAI API KEY]"_ with your OpenAI API key
-
-_Note: Your OpenAI API key can be found here: [https://platform.openai.com/account/api-keys](https://platform.openai.com/account/api-keys)._
-
-### Step 4: Download and Install ReconAIzer
-
-1.  Open Burp Suite
-2.  Go back to the "Extensions" tab in Burp Suite.
-3.  Click the "Add" button.
-4.  In the "Add extension" dialog, select "Python" as the "Extension type."
-5.  Click on the "Select file..." button next to "Extension file" and browse to the location where you saved the `ReconAIzer.py` file in Step 3.1. Select the file and click "Open."
-6.  Make sure the "Load" checkbox is selected and click the "Next" button.
-7.  Wait for the extension to be loaded. You should see a message in the "Output" section stating that the ReconAIzer extension has been successfully loaded.
+2.  Open Burp Suite
+3.  Go back to the "Extensions" tab in Burp Suite.
+4.  Click the "Add" button.
+5.  In the "Add extension" dialog, select "Python" as the "Extension type."
+6.  Click on the "Select file..." button next to "Extension file" and browse to the location where you saved the `ReconAIzer.py` file in Step 3.1. Select the file and click "Open."
+7.  Make sure the "Load" checkbox is selected and click the "Next" button.
+8.  Wait for the extension to be loaded. You should see a message in the "Output" section stating that the ReconAIzer extension has been successfully loaded.
 
 Congratulations! You have successfully installed the ReconAIzer extension in Burp Suite. You can now start using it to enhance your bug bounty hunting experience.
 
-**Note: Feel free to suggest prompts improvements or anything you would like to see on ReconAIzer!**
+Once it's done, you must configure your OpenAI API key on the "Config" tab under "ReconAIzer" tab.
+
+- _Your OpenAI API key can be found here: [https://platform.openai.com/account/api-keys](https://platform.openai.com/account/api-keys)._
+
+**Feel free to suggest prompts improvements or anything you would like to see on ReconAIzer!**
 
 Happy bug hunting!
 
