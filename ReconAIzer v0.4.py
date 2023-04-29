@@ -113,6 +113,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IContextMenuFactory):
 
     def send_request_to_openai(self, text, prompt_type):
         global API_KEY
+        global MODEL_NAME
         OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
         # Use proxy if SOCKS_PROXY_URL is set, e.g. 127.0.0.1
         SOCKS_PROXY_URL = ""
@@ -137,7 +138,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IContextMenuFactory):
         prompt = prompt_mapping.get(prompt_type, "")
 
         data = {
-            "model": "gpt-3.5-turbo",
+            "model": MODEL_NAME,
             "messages": [{"role": "user", "content": "{}:\n\n{}".format(prompt, text)}]
         }
 
@@ -223,27 +224,33 @@ class ConfigTab(JPanel):
     def __init__(self):
         self.setLayout(BorderLayout())
 
-        # Create a panel to hold the API key input and the "Save" button
         config_panel = JPanel()
         self.add(config_panel, BorderLayout.NORTH)
 
-        # Add a label for the API key input field
         api_key_label = JLabel("API Key:")
         config_panel.add(api_key_label)
 
-        # Create the API key input field
         self._api_key_input = JTextField()
         self._api_key_input.setPreferredSize(Dimension(300, 25))
         config_panel.add(self._api_key_input)
 
-        # Create the "Save" button
+        model_name_label = JLabel("Model Name:")
+        config_panel.add(model_name_label)
+
+        self._model_name_input = JTextField()
+        self._model_name_input.setText("gpt-3.5-turbo")
+        self._model_name_input.setPreferredSize(Dimension(300, 25))
+        config_panel.add(self._model_name_input)
+
         save_button = JButton("Save")
         save_button.setPreferredSize(Dimension(100, 25))
         config_panel.add(save_button)
 
-        save_button.addActionListener(self.save_api_key)
+        save_button.addActionListener(self.save_config)
 
-    def save_api_key(self, event):
+    def save_config(self, event):
         global API_KEY
+        global MODEL_NAME
         API_KEY = self._api_key_input.getText()
-        JOptionPane.showMessageDialog(self, "API key has been saved successfully!", "Confirmation", JOptionPane.INFORMATION_MESSAGE)
+        MODEL_NAME = self._model_name_input.getText()
+        JOptionPane.showMessageDialog(self, "API key and Model Name have been saved successfully!", "Confirmation", JOptionPane.INFORMATION_MESSAGE)

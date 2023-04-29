@@ -48,6 +48,8 @@ Once it's done, you must configure your OpenAI API key on the "Config" tab under
 
 - _Your OpenAI API key can be found here: [https://platform.openai.com/account/api-keys](https://platform.openai.com/account/api-keys)._
 
+By default, the `gpt-3.5-turbo` model is selected. However, this setting can be adjusted to utilize the `gpt-4` model instead, if desired.
+
 **Feel free to suggest prompts improvements or anything you would like to see on ReconAIzer!**
 
 Happy bug hunting!
