@@ -1,6 +1,6 @@
 from burp import IBurpExtender, ITab, IHttpListener, IContextMenuFactory
-from javax.swing import JMenuItem, JPanel, JTextArea, JScrollPane, ScrollPaneConstants, JTextField, JButton, JLabel, JTabbedPane, JOptionPane
-from java.awt import BorderLayout, Dimension
+from javax.swing import JMenuItem, JPanel, JTextArea, JScrollPane, ScrollPaneConstants, JTextField, JButton, JLabel, JTabbedPane, JOptionPane, JComboBox, AbstractAction, Box, BoxLayout
+from java.awt import BorderLayout, Dimension, GridBagConstraints, Insets, GridBagLayout
 from java.util import ArrayList
 from java.net import URL, HttpURLConnection, Proxy, InetSocketAddress
 from java.io import BufferedReader, InputStreamReader, DataOutputStream
@@ -8,6 +8,9 @@ from org.python.core.util import StringUtil
 from java.lang import Runnable, Thread
 import json
 import time
+
+API_KEY = ""
+MODEL_NAME = ""
 
 class BurpExtender(IBurpExtender, ITab, IHttpListener, IContextMenuFactory):
     def registerExtenderCallbacks(self, callbacks):
@@ -38,36 +41,45 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IContextMenuFactory):
     def createMenuItems(self, invocation):
         menu = ArrayList()
 
+        class MenuAction(AbstractAction):
+            def __init__(self, extender, invocation, prompt_type):
+                self.extender = extender
+                self.invocation = invocation
+                self.prompt_type = prompt_type
+
+            def actionPerformed(self, event):
+                self.extender.send_to_reconaizer(self.invocation, self.prompt_type)
+
         guess_get_parameters = JMenuItem("Suggest GET parameters")
-        guess_get_parameters.addActionListener(lambda x: self.send_to_reconaizer(invocation, "guess_get_parameters"))
+        guess_get_parameters.addActionListener(MenuAction(self, invocation, "guess_get_parameters"))
         menu.add(guess_get_parameters)
 
         guess_post_parameters = JMenuItem("Suggest POST parameters")
-        guess_post_parameters.addActionListener(lambda x: self.send_to_reconaizer(invocation, "guess_post_parameters"))
+        guess_post_parameters.addActionListener(MenuAction(self, invocation, "guess_post_parameters"))
         menu.add(guess_post_parameters)
 
         guess_json_parameters = JMenuItem("Suggest JSON parameters")
-        guess_json_parameters.addActionListener(lambda x: self.send_to_reconaizer(invocation, "guess_json_parameters"))
+        guess_json_parameters.addActionListener(MenuAction(self, invocation, "guess_json_parameters"))
         menu.add(guess_json_parameters)
 
         guess_endpoints = JMenuItem("Suggest endpoints")
-        guess_endpoints.addActionListener(lambda x: self.send_to_reconaizer(invocation, "guess_endpoints"))
+        guess_endpoints.addActionListener(MenuAction(self, invocation, "guess_endpoints"))
         menu.add(guess_endpoints)
 
         guess_filename = JMenuItem("Suggest file names")
-        guess_filename.addActionListener(lambda x: self.send_to_reconaizer(invocation, "guess_filename"))
+        guess_filename.addActionListener(MenuAction(self, invocation, "guess_filename"))
         menu.add(guess_filename)
 
         guess_headers = JMenuItem("Suggest headers")
-        guess_headers.addActionListener(lambda x: self.send_to_reconaizer(invocation, "guess_headers"))
+        guess_headers.addActionListener(MenuAction(self, invocation, "guess_headers"))
         menu.add(guess_headers)
 
         guess_backup_files = JMenuItem("Suggest backup file names")
-        guess_backup_files.addActionListener(lambda x: self.send_to_reconaizer(invocation, "guess_backup_files"))
+        guess_backup_files.addActionListener(MenuAction(self, invocation, "guess_backup_files"))
         menu.add(guess_backup_files)
 
         guess_generic = JMenuItem("Analyze the full request")
-        guess_generic.addActionListener(lambda x: self.send_to_reconaizer(invocation, "guess_generic"))
+        guess_generic.addActionListener(MenuAction(self, invocation, "guess_generic"))
         menu.add(guess_generic)
 
         return menu
@@ -80,6 +92,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IContextMenuFactory):
                 self.prompt_type = prompt_type
 
             def run(self):
+                self.extender._reconaizer_tab.update_text("Waiting results from OpenAI...")
                 message_info = self.invocation.getSelectedMessages()[0]
                 request_info = self.extender._helpers.analyzeRequest(message_info)
 
@@ -112,7 +125,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IContextMenuFactory):
 
 
     def send_request_to_openai(self, text, prompt_type):
-        global API_KEY
+        global API_KEY, MODEL_NAME
         OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
         # Use proxy if SOCKS_PROXY_URL is set, e.g. 127.0.0.1
         SOCKS_PROXY_URL = ""
@@ -135,9 +148,9 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IContextMenuFactory):
         }
 
         prompt = prompt_mapping.get(prompt_type, "")
-
+        
         data = {
-            "model": "gpt-3.5-turbo",
+            "model": MODEL_NAME,
             "messages": [{"role": "user", "content": "{}:\n\n{}".format(prompt, text)}]
         }
 
@@ -215,6 +228,7 @@ class ResultsTab(JPanel):
         scroll_pane = JScrollPane(self._text_area)
         scroll_pane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER)
         self.add(scroll_pane, BorderLayout.CENTER)
+        #self.update_text("Waiting results from OpenAI...")
 
     def update_text(self, text):
         self._text_area.setText(text)
@@ -223,27 +237,51 @@ class ConfigTab(JPanel):
     def __init__(self):
         self.setLayout(BorderLayout())
 
-        # Create a panel to hold the API key input and the "Save" button
+        # Create a panel to hold the API key input, model input, and the "Save" button
         config_panel = JPanel()
+        config_panel.setLayout(GridBagLayout())
         self.add(config_panel, BorderLayout.NORTH)
 
-        # Add a label for the API key input field
-        api_key_label = JLabel("API Key:")
-        config_panel.add(api_key_label)
+        # Set up GridBagConstraints
+        gbc = GridBagConstraints()
+        gbc.fill = GridBagConstraints.HORIZONTAL
+        gbc.insets = Insets(0, 0, 0, 0)
 
-        # Create the API key input field
-        self._api_key_input = JTextField()
-        self._api_key_input.setPreferredSize(Dimension(300, 25))
-        config_panel.add(self._api_key_input)
+        # Add a label and input field for the API key
+        api_key_label = JLabel("API Key:")
+        gbc.gridx = 0
+        gbc.gridy = 0
+        config_panel.add(api_key_label, gbc)
+        self._api_key_input = JTextField(20)
+        gbc.gridx = 1
+        config_panel.add(self._api_key_input, gbc)
+
+        # Add a label and dropdown field for the model
+        model_label = JLabel("Model:")
+        gbc.gridx = 0
+        gbc.gridy = 1
+        config_panel.add(model_label, gbc)
+        self._model_dropdown = JComboBox(["gpt-3.5-turbo", "gpt-4"])
+        gbc.gridx = 1
+        config_panel.add(self._model_dropdown, gbc)
+
+        # Add a label with a description about the OpenAI models
+        description_label = JLabel("OpenAI models depend on your API access, check the documentation.")
+        gbc.gridx = 0
+        gbc.gridy = 2
+        gbc.gridwidth = 2
+        config_panel.add(description_label, gbc)
 
         # Create the "Save" button
         save_button = JButton("Save")
-        save_button.setPreferredSize(Dimension(100, 25))
-        config_panel.add(save_button)
+        gbc.gridy = 3
+        gbc.gridwidth = 1
+        config_panel.add(save_button, gbc)
 
-        save_button.addActionListener(self.save_api_key)
+        save_button.addActionListener(self.save_config)
 
-    def save_api_key(self, event):
-        global API_KEY
+    def save_config(self, event):
+        global API_KEY, MODEL_NAME
         API_KEY = self._api_key_input.getText()
-        JOptionPane.showMessageDialog(self, "API key has been saved successfully!", "Confirmation", JOptionPane.INFORMATION_MESSAGE)
+        MODEL_NAME = self._model_dropdown.getSelectedItem()
+        JOptionPane.showMessageDialog(self, "Configurations have been saved successfully!", "Confirmation", JOptionPane.INFORMATION_MESSAGE)
