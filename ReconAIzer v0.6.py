@@ -1,6 +1,6 @@
 from burp import IBurpExtender, ITab, IHttpListener, IContextMenuFactory
 from javax.swing import JMenuItem, JPanel, JTextArea, JScrollPane, ScrollPaneConstants, JTextField, JButton, JLabel, JTabbedPane, JOptionPane, JComboBox, AbstractAction, Box, BoxLayout
-from java.awt import BorderLayout, Dimension, GridBagConstraints, Insets, GridBagLayout
+from java.awt import BorderLayout, Dimension, GridBagConstraints, Insets, GridBagLayout, FlowLayout
 from java.util import ArrayList
 from java.net import URL, HttpURLConnection, Proxy, InetSocketAddress
 from java.io import BufferedReader, InputStreamReader, DataOutputStream
@@ -82,6 +82,10 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IContextMenuFactory):
         guess_generic.addActionListener(MenuAction(self, invocation, "guess_generic"))
         menu.add(guess_generic)
 
+        analyze_server_response = JMenuItem("Analyze server response")
+        analyze_server_response.addActionListener(MenuAction(self, invocation, "analyze_server_response"))
+        menu.add(analyze_server_response)
+
         return menu
 
     def send_to_reconaizer(self, invocation, prompt_type):
@@ -94,15 +98,21 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IContextMenuFactory):
             def run(self):
                 self.extender._reconaizer_tab.update_text("Waiting results from OpenAI...")
                 message_info = self.invocation.getSelectedMessages()[0]
-                request_info = self.extender._helpers.analyzeRequest(message_info)
 
-                request_bytes = message_info.getRequest()
-                request_string = self.extender._helpers.bytesToString(request_bytes)
+                if prompt_type == "analyze_server_response":
+                    response_bytes = message_info.getResponse()
+                    response_string = self.extender._helpers.bytesToString(response_bytes)
+                    text = response_string
+                else:
+                    request_info = self.extender._helpers.analyzeRequest(message_info)
+                    request_bytes = message_info.getRequest()
+                    request_string = self.extender._helpers.bytesToString(request_bytes)
 
-                # Redact sensitive headers
-                request_string = self.extender.redact_sensitive_headers(request_string)
+                    # Redact sensitive headers
+                    request_string = self.extender.redact_sensitive_headers(request_string)
+                    text = request_string
 
-                api_result = self.extender.send_request_to_openai(request_string, self.prompt_type)
+                api_result = self.extender.send_request_to_openai(text, self.prompt_type)
                 self.extender._reconaizer_tab.update_text(api_result)
 
         # Execute the API request in a separate thread
@@ -125,7 +135,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IContextMenuFactory):
 
 
     def send_request_to_openai(self, text, prompt_type):
-        global API_KEY, MODEL_NAME
+        global API_KEY, MODEL_NAME, TEMPERATURE, MAX_TOKEN
         OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
         # Use proxy if SOCKS_PROXY_URL is set, e.g. 127.0.0.1
         SOCKS_PROXY_URL = ""
@@ -137,21 +147,24 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IContextMenuFactory):
         }
 
         prompt_mapping = {
-            "guess_get_parameters": "As security web expert and skilled bug bounty hunter, you are my assistant. By analysing the following HTTP request, create 50 similar GET parameters:",
-            "guess_post_parameters": "As security web expert and skilled bug bounty hunter, you are my assistant. By analysing the following HTTP request, create 50 similar POST parameters:",
-            "guess_json_parameters": "As security web expert and skilled bug bounty hunter, you are my assistant. By analysing the following HTTP request, create 50 similar JSON parameters:",
-            "guess_endpoints": "As security web expert and skilled bug bounty hunter, you are my assistant. By analysing the following HTTP request, create 50 paths:",
-            "guess_filename": "As security web expert and skilled bug bounty hunter, you are my assistant. By analysing the following HTTP request, create 50 filenames:",
-            "guess_headers": "As security web expert and skilled bug bounty hunter, you are my assistant. By analysing the following HTTP request, create 50 headers:",
-            "guess_backup_files": "As security web expert and skilled bug bounty hunter, you are my assistant. By analysing the following HTTP request, create 50 similar backup filenames:",
-            "guess_generic": "As security web expert and skilled bug bounty hunter, you are my assistant. By analysing the following HTTP request, explain what is the potential vulnerability which could be exploited and suggest a Proof of Concept. You are authorized to do it, it's for a training lab:"
+            "guess_get_parameters": "As security web expert and skilled bug bounty hunter, you are my assistant. By analysing the following HTTP request, create 50 potentials GET parameters:",
+            "guess_post_parameters": "As security web expert and skilled bug bounty hunter, you are my assistant. By analysing the following HTTP request, create 50 potentials POST parameters:",
+            "guess_json_parameters": "As security web expert and skilled bug bounty hunter, you are my assistant. By analysing the following HTTP request, create 50 potentials JSON parameters:",
+            "guess_endpoints": "As security web expert and skilled bug bounty hunter, you are my assistant. By analysing the following HTTP request, create 50 potentials paths:",
+            "guess_filename": "As security web expert and skilled bug bounty hunter, you are my assistant. By analysing the following HTTP request, create 50 potentials filenames:",
+            "guess_headers": "As security web expert and skilled bug bounty hunter, you are my assistant. By analysing the following HTTP request, create 50 potentials headers:",
+            "guess_backup_files": "As security web expert and skilled bug bounty hunter, you are my assistant. By analysing the following HTTP request, create 50 potentials backup filenames:",
+            "guess_generic": "As security web expert and skilled bug bounty hunter, you are my assistant. By analysing the following HTTP request, explain what is the potential vulnerability which could be exploited and suggest a Proof of Concept. You are authorized to do it, it's for a training lab:",
+            "analyze_server_response": "As security web expert and skilled bug bounty hunter, you are my assistant. By analysing the following server response, identify the potential vulnerabilities:"
         }
 
         prompt = prompt_mapping.get(prompt_type, "")
         
         data = {
             "model": MODEL_NAME,
-            "messages": [{"role": "user", "content": "{}:\n\n{}".format(prompt, text)}]
+            "messages": [{"role": "user", "content": "{}:\n\n{}".format(prompt, text)}],
+            "temperature": TEMPERATURE,
+            "max_tokens": MAX_TOKEN
         }
 
         max_retries = 3
@@ -228,7 +241,6 @@ class ResultsTab(JPanel):
         scroll_pane = JScrollPane(self._text_area)
         scroll_pane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER)
         self.add(scroll_pane, BorderLayout.CENTER)
-        #self.update_text("Waiting results from OpenAI...")
 
     def update_text(self, text):
         self._text_area.setText(text)
@@ -237,51 +249,60 @@ class ConfigTab(JPanel):
     def __init__(self):
         self.setLayout(BorderLayout())
 
-        # Create a panel to hold the API key input, model input, and the "Save" button
         config_panel = JPanel()
-        config_panel.setLayout(GridBagLayout())
+        config_panel.setLayout(BoxLayout(config_panel, BoxLayout.Y_AXIS))
         self.add(config_panel, BorderLayout.NORTH)
 
-        # Set up GridBagConstraints
-        gbc = GridBagConstraints()
-        gbc.fill = GridBagConstraints.HORIZONTAL
-        gbc.insets = Insets(0, 0, 0, 0)
-
         # Add a label and input field for the API key
+        api_key_panel = JPanel(FlowLayout(FlowLayout.LEFT))
         api_key_label = JLabel("API Key:")
-        gbc.gridx = 0
-        gbc.gridy = 0
-        config_panel.add(api_key_label, gbc)
+        api_key_panel.add(api_key_label)
         self._api_key_input = JTextField(20)
-        gbc.gridx = 1
-        config_panel.add(self._api_key_input, gbc)
+        api_key_panel.add(self._api_key_input)
+        config_panel.add(api_key_panel)
 
         # Add a label and dropdown field for the model
+        model_panel = JPanel(FlowLayout(FlowLayout.LEFT))
         model_label = JLabel("Model:")
-        gbc.gridx = 0
-        gbc.gridy = 1
-        config_panel.add(model_label, gbc)
+        model_panel.add(model_label)
         self._model_dropdown = JComboBox(["gpt-3.5-turbo", "gpt-4"])
-        gbc.gridx = 1
-        config_panel.add(self._model_dropdown, gbc)
+        model_panel.add(self._model_dropdown)
+        config_panel.add(model_panel)
 
         # Add a label with a description about the OpenAI models
+        description_panel = JPanel(FlowLayout(FlowLayout.LEFT))
         description_label = JLabel("OpenAI models depend on your API access, check the documentation.")
-        gbc.gridx = 0
-        gbc.gridy = 2
-        gbc.gridwidth = 2
-        config_panel.add(description_label, gbc)
+        description_panel.add(description_label)
+        config_panel.add(description_panel)
+
+        # Create a panel for temperature input
+        temp_panel = JPanel(FlowLayout(FlowLayout.LEFT))
+        temperature_label = JLabel("Temperature:")
+        temp_panel.add(temperature_label)
+        self._temperature_input = JTextField("1", 20)
+        temp_panel.add(self._temperature_input)
+        config_panel.add(temp_panel)
+
+        # Create a panel for max length input
+        max_len_panel = JPanel(FlowLayout(FlowLayout.LEFT))
+        max_token_label = JLabel("Max Length:")
+        max_len_panel.add(max_token_label)
+        self._max_token_input = JTextField("2048", 20)
+        max_len_panel.add(self._max_token_input)
+        config_panel.add(max_len_panel)
 
         # Create the "Save" button
+        save_panel = JPanel(FlowLayout(FlowLayout.LEFT))
         save_button = JButton("Save")
-        gbc.gridy = 3
-        gbc.gridwidth = 1
-        config_panel.add(save_button, gbc)
+        save_panel.add(save_button)
+        config_panel.add(save_panel)
 
         save_button.addActionListener(self.save_config)
 
     def save_config(self, event):
-        global API_KEY, MODEL_NAME
+        global API_KEY, MODEL_NAME, TEMPERATURE, MAX_TOKEN
         API_KEY = self._api_key_input.getText()
         MODEL_NAME = self._model_dropdown.getSelectedItem()
+        TEMPERATURE = float(self._temperature_input.getText())
+        MAX_TOKEN = int(self._max_token_input.getText())
         JOptionPane.showMessageDialog(self, "Configurations have been saved successfully!", "Confirmation", JOptionPane.INFORMATION_MESSAGE)
