@@ -1,5 +1,6 @@
 from burp import IBurpExtender, ITab, IHttpListener, IContextMenuFactory
-from javax.swing import JMenuItem, JPanel, JTextArea, JScrollPane, ScrollPaneConstants, JTextField, JButton, JLabel, JTabbedPane, JOptionPane, JComboBox, AbstractAction, Box, BoxLayout
+from javax.swing import JMenuItem, JPanel, JTextArea, JScrollPane, ScrollPaneConstants, JTextField, JButton, JLabel, JTabbedPane, JOptionPane, JComboBox, AbstractAction, Box, BoxLayout, JList, DefaultListModel, ListSelectionModel, DefaultListCellRenderer
+from javax.swing.event import ListSelectionListener
 from java.awt import BorderLayout, Dimension, GridBagConstraints, Insets, GridBagLayout, FlowLayout
 from java.util import ArrayList
 from java.net import URL, HttpURLConnection, Proxy, InetSocketAddress
@@ -96,7 +97,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IContextMenuFactory):
                 self.prompt_type = prompt_type
 
             def run(self):
-                self.extender._reconaizer_tab.update_text("Waiting results from OpenAI...")
+                self.extender._reconaizer_tab.update_text(("Waiting results from OpenAI...", False, None))
                 message_info = self.invocation.getSelectedMessages()[0]
 
                 if prompt_type == "analyze_server_response":
@@ -112,8 +113,24 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IContextMenuFactory):
                     request_string = self.extender.redact_sensitive_headers(request_string)
                     text = request_string
 
+                # Create a dictionary to map the prompt type to the corresponding option text
+                option_text_mapping = {
+                    "guess_get_parameters": "Suggest GET parameters",
+                    "guess_post_parameters": "Suggest POST parameters",
+                    "guess_json_parameters": "Suggest JSON parameters",
+                    "guess_endpoints": "Suggest endpoints",
+                    "guess_filename": "Suggest file names",
+                    "guess_headers": "Suggest headers",
+                    "guess_backup_files": "Suggest backup file names",
+                    "guess_generic": "Analyze the full request",
+                    "analyze_server_response": "Analyze server response"
+                }
+
+                # Get the option text based on the prompt type
+                option_text = option_text_mapping.get(prompt_type, "")
+
                 api_result = self.extender.send_request_to_openai(text, self.prompt_type)
-                self.extender._reconaizer_tab.update_text(api_result)
+                self.extender._reconaizer_tab.update_text((api_result, True, option_text))
 
         # Execute the API request in a separate thread
         thread = Thread(RunInThread(self, invocation, prompt_type))
@@ -231,9 +248,51 @@ class ReconAIzerTab(JPanel):
     def update_text(self, text):
         self._results_tab.update_text(text)
 
+class OptionTextListCellRenderer(DefaultListCellRenderer):
+    def getListCellRendererComponent(self, list, value, index, isSelected, cellHasFocus):
+        option_text, text = value
+        return DefaultListCellRenderer.getListCellRendererComponent(self, list, option_text, index, isSelected, cellHasFocus)
+
 class ResultsTab(JPanel):
     def __init__(self):
         self.setLayout(BorderLayout())
+
+        # Create the history list and model
+        self._history_list_model = DefaultListModel()
+        self._history_list = JList(self._history_list_model)
+        self._history_list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION)
+        self._history_list.setCellRenderer(OptionTextListCellRenderer())
+
+        # Add a ListSelectionListener to the history list
+        self._history_list.addListSelectionListener(self.selection_changed)
+
+        # Set up the history panel with GridBagLayout
+        history_panel = JPanel()
+        history_panel.setLayout(GridBagLayout())
+        gbc = GridBagConstraints()
+
+        # Add a JScrollPane for the history list
+        history_scroll_pane = JScrollPane(self._history_list)
+        history_scroll_pane.setPreferredSize(Dimension(200, 100))
+        gbc.gridx = 0
+        gbc.gridy = 0
+        gbc.weightx = 1
+        gbc.weighty = 1
+        gbc.fill = GridBagConstraints.BOTH
+        history_panel.add(history_scroll_pane, gbc)
+
+        # Add the "Clear the list" button at the bottom
+        clean_list_button = JButton("Clear the list")
+        clean_list_button.addActionListener(self.clean_list)
+        gbc.gridx = 0
+        gbc.gridy = 1
+        gbc.weightx = 0
+        gbc.weighty = 0
+        gbc.fill = GridBagConstraints.NONE
+        history_panel.add(clean_list_button, gbc)
+
+        self.add(history_panel, BorderLayout.WEST)
+
         self._text_area = JTextArea()
         self._text_area.setEditable(False)
         self._text_area.setLineWrap(True)
@@ -242,8 +301,25 @@ class ResultsTab(JPanel):
         scroll_pane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER)
         self.add(scroll_pane, BorderLayout.CENTER)
 
-    def update_text(self, text):
+    def clean_list(self, event):
+        self._history_list_model.clear()
+    
+    def add_prompt_type_to_history(self, option_text, text):
+        self._history_list_model.addElement((option_text, text))
+
+    # The ListSelectionListener implementation
+    def selection_changed(self, event):
+        if not event.getValueIsAdjusting():
+            selected_index = self._history_list.getSelectedIndex()
+            if selected_index != -1:
+                selected_option_text, selected_text = self._history_list_model.getElementAt(selected_index)
+                self._text_area.setText("Option: {}\n\n{}".format(selected_option_text, selected_text))
+
+    def update_text(self, args):
+        text, add_to_history, prompt_type = args
         self._text_area.setText(text)
+        if add_to_history:
+            self.add_prompt_type_to_history(prompt_type, text)
 
 class ConfigTab(JPanel):
     def __init__(self):
